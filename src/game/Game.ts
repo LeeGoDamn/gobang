@@ -32,14 +32,12 @@ export class Game {
     this.render();
   }
 
-  // 创建空棋盘
   private createEmptyGrid(): Player[][] {
     return Array(BOARD_SIZE)
       .fill(null)
       .map(() => Array(BOARD_SIZE).fill(Player.None));
   }
 
-  // 重置游戏
   reset(): void {
     this.grid = this.createEmptyGrid();
     this.currentPlayer = Player.Black;
@@ -51,11 +49,9 @@ export class Game {
     this.render();
   }
 
-  // 绑定事件
   private bindEvents(): void {
     const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
 
-    // 鼠标移动 - 悬停预览
     canvas.addEventListener('mousemove', (e) => {
       if (this.gameOver || this.currentPlayer !== Player.Black) return;
 
@@ -78,7 +74,6 @@ export class Game {
       }
     });
 
-    // 点击 - 落子
     canvas.addEventListener('click', (e) => {
       if (this.gameOver || this.currentPlayer !== Player.Black) return;
 
@@ -88,37 +83,30 @@ export class Game {
       }
     });
 
-    // 新游戏按钮
     document.getElementById('resetBtn')?.addEventListener('click', () => {
       this.reset();
     });
 
-    // 悔棋按钮
     this.undoBtn.addEventListener('click', () => {
       this.undo();
     });
   }
 
-  // 落子
   private makeMove(x: number, y: number, player: Player): void {
     this.grid[x][y] = player;
     this.moveHistory.push({ x, y });
     this.hoverPos = null;
 
-    // 检查胜负
     if (this.checkWin(x, y, player)) {
       this.endGame(player === Player.Black ? GameStatus.PlayerWin : GameStatus.AIWin);
       this.render();
       return;
     }
 
-    // 切换玩家
     if (player === Player.Black) {
       this.currentPlayer = Player.White;
       this.updateStatus();
       this.render();
-
-      // AI 回合
       setTimeout(() => this.aiMove(), 100);
     } else {
       this.currentPlayer = Player.Black;
@@ -127,7 +115,6 @@ export class Game {
     }
   }
 
-  // AI 移动
   private aiMove(): void {
     const move = this.ai.getBestMove();
     if (move) {
@@ -135,15 +122,12 @@ export class Game {
     }
   }
 
-  // 悔棋（撤销两步）
   private undo(): void {
     if (this.moveHistory.length < 2 || this.gameOver) return;
 
-    // 撤销 AI 的一步
     const aiMove = this.moveHistory.pop()!;
     this.grid[aiMove.x][aiMove.y] = Player.None;
 
-    // 撤销玩家的一步
     const playerMove = this.moveHistory.pop()!;
     this.grid[playerMove.x][playerMove.y] = Player.None;
 
@@ -154,7 +138,6 @@ export class Game {
     this.render();
   }
 
-  // 检查胜负
   private checkWin(x: number, y: number, player: Player): boolean {
     const directions = [
       { dx: 1, dy: 0 },
@@ -190,27 +173,27 @@ export class Game {
     return false;
   }
 
-  // 游戏结束
   private endGame(status: GameStatus): void {
     this.gameOver = true;
     if (status === GameStatus.PlayerWin) {
-      this.statusEl.textContent = '🎉 你赢了！';
+      this.statusEl.textContent = '🎉 恭喜你赢了！';
+      this.statusEl.className = 'text-center text-xl font-bold min-h-12 bg-green-400 text-green-900 px-8 py-3 rounded-xl shadow-lg border-2 border-green-500 animate-pulse';
     } else {
-      this.statusEl.textContent = '💀 AI 赢了！再接再厉！';
+      this.statusEl.textContent = '💀 AI 赢了！再来一局？';
+      this.statusEl.className = 'text-center text-xl font-bold min-h-12 bg-red-400 text-red-900 px-8 py-3 rounded-xl shadow-lg border-2 border-red-500';
     }
   }
 
-  // 更新状态显示
   private updateStatus(): void {
+    this.statusEl.className = 'text-center text-slate-900 text-xl font-bold min-h-12 bg-amber-200 px-8 py-3 rounded-xl shadow-lg border-2 border-amber-400';
     if (this.currentPlayer === Player.Black) {
-      this.statusEl.textContent = '⚫ 黑棋先手（你）';
+      this.statusEl.textContent = '⚫ 轮到你了';
     } else {
-      this.statusEl.textContent = '⚪ 白棋思考中（AI）...';
+      this.statusEl.textContent = '⚪ AI 思考中...';
     }
     this.undoBtn.disabled = this.moveHistory.length === 0;
   }
 
-  // 渲染
   private render(): void {
     const lastMove = this.moveHistory.length > 0
       ? this.moveHistory[this.moveHistory.length - 1]
@@ -218,7 +201,6 @@ export class Game {
 
     this.board.draw(this.grid, lastMove);
 
-    // 绘制悬停预览
     if (this.hoverPos && !this.gameOver && this.currentPlayer === Player.Black) {
       this.board.drawHover(this.hoverPos.x, this.hoverPos.y);
     }
