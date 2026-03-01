@@ -22,18 +22,92 @@
         const BOARD_SIZE=15,CELL_SIZE=40,PADDING=20;
         let board=[],currentPlayer=1,gameOver=false,moveHistory=[],hoverPos=null;
         const canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d'),statusEl=document.getElementById('status'),undoBtn=document.getElementById('undoBtn');
+        
         function init(){board=Array(BOARD_SIZE).fill(null).map(()=>Array(BOARD_SIZE).fill(0));currentPlayer=1;gameOver=false;moveHistory=[];hoverPos=null;updateStatus();draw();}
+        
         function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#deb887';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.strokeStyle='#8b4513';ctx.lineWidth=1;for(let i=0;i<BOARD_SIZE;i++){ctx.beginPath();ctx.moveTo(PADDING,PADDING+i*CELL_SIZE);ctx.lineTo(PADDING+(BOARD_SIZE-1)*CELL_SIZE,PADDING+i*CELL_SIZE);ctx.stroke();ctx.beginPath();ctx.moveTo(PADDING+i*CELL_SIZE,PADDING);ctx.lineTo(PADDING+i*CELL_SIZE,PADDING+(BOARD_SIZE-1)*CELL_SIZE);ctx.stroke();}const starPoints=[[3,3],[3,11],[11,3],[11,11],[7,7]];ctx.fillStyle='#8b4513';for(const[x,y]of starPoints){ctx.beginPath();ctx.arc(PADDING+x*CELL_SIZE,PADDING+y*CELL_SIZE,4,0,Math.PI*2);ctx.fill();}for(let i=0;i<BOARD_SIZE;i++)for(let j=0;j<BOARD_SIZE;j++)if(board[i][j]!==0)drawPiece(i,j,board[i][j]);if(moveHistory.length>0){const last=moveHistory[moveHistory.length-1];ctx.strokeStyle='#ff0000';ctx.lineWidth=2;ctx.beginPath();ctx.arc(PADDING+last.x*CELL_SIZE,PADDING+last.y*CELL_SIZE,8,0,Math.PI*2);ctx.stroke();}if(hoverPos&&!gameOver&&currentPlayer===1)drawHover(hoverPos.x,hoverPos.y);}
+        
         function drawHover(x,y){const centerX=PADDING+x*CELL_SIZE,centerY=PADDING+y*CELL_SIZE,radius=CELL_SIZE/2-2;ctx.beginPath();ctx.arc(centerX,centerY,radius,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,0.3)';ctx.fill();}
+        
         function drawPiece(x,y,player){const centerX=PADDING+x*CELL_SIZE,centerY=PADDING+y*CELL_SIZE,radius=CELL_SIZE/2-2;ctx.beginPath();ctx.arc(centerX,centerY,radius,0,Math.PI*2);const gradient=ctx.createRadialGradient(centerX-5,centerY-5,0,centerX,centerY,radius);if(player===1){gradient.addColorStop(0,'#444');gradient.addColorStop(1,'#000');}else{gradient.addColorStop(0,'#fff');gradient.addColorStop(1,'#ddd');}ctx.fillStyle=gradient;ctx.fill();}
+        
         function updateStatus(){statusEl.textContent=currentPlayer===1?'⚫ 黑棋先手（你）':'⚪ 白棋思考中（AI）...';undoBtn.disabled=moveHistory.length===0;}
+        
         function checkWin(x,y,player){const directions=[[1,0],[0,1],[1,1],[1,-1]];for(const[dx,dy]of directions){let count=1;for(let i=1;i<5;i++){const nx=x+dx*i,ny=y+dy*i;if(nx>=0&&nx<BOARD_SIZE&&ny>=0&&ny<BOARD_SIZE&&board[nx][ny]===player)count++;else break;}for(let i=1;i<5;i++){const nx=x-dx*i,ny=y-dy*i;if(nx>=0&&nx<BOARD_SIZE&&ny>=0&&ny<BOARD_SIZE&&board[nx][ny]===player)count++;else break;}if(count>=5)return true;}return false;}
+        
         function aiMove(){setTimeout(()=>{const bestMove=getBestMove();if(bestMove){board[bestMove.x][bestMove.y]=2;moveHistory.push(bestMove);if(checkWin(bestMove.x,bestMove.y,2)){endGame(2);return;}currentPlayer=1;updateStatus();draw();}},100);}
-        function getBestMove(){const moves=getAvailableMoves();if(moves.length===0)return null;let bestScore=-Infinity,bestMove=moves[0];for(const move of moves){board[move.x][move.y]=2;const score=evaluateMove(move.x,move.y);board[move.x][move.y]=0;if(score>bestScore){bestScore=score;bestMove=move;}}return bestMove;}
+        
+        // 修复后的 getBestMove：不在循环中修改棋盘
+        function getBestMove(){const moves=getAvailableMoves();if(moves.length===0)return null;let bestScore=-Infinity,bestMove=moves[0];for(const move of moves){const score=evaluatePosition(move.x,move.y,2);if(score>bestScore){bestScore=score;bestMove=move;}}return bestMove;}
+        
         function getAvailableMoves(){const moves=[];for(let i=0;i<BOARD_SIZE;i++)for(let j=0;j<BOARD_SIZE;j++)if(board[i][j]===0&&hasNeighbor(i,j,2))moves.push({x:i,y:j});if(moves.length===0){const center=Math.floor(BOARD_SIZE/2);if(board[center][center]===0)moves.push({x:center,y:center});}return moves;}
+        
         function hasNeighbor(x,y,dist){for(let dx=-dist;dx<=dist;dx++)for(let dy=-dist;dy<=dist;dy++){if(dx===0&&dy===0)continue;const nx=x+dx,ny=y+dy;if(nx>=0&&nx<BOARD_SIZE&&ny>=0&&ny<BOARD_SIZE&&board[nx][ny]!==0)return true;}return false;}
-        function evaluateMove(x,y){let score=0;board[x][y]=2;if(checkWin(x,y,2)){board[x][y]=0;return 100000;}board[x][y]=0;board[x][y]=1;if(checkWin(x,y,1)){board[x][y]=0;return 10000;}board[x][y]=0;const directions=[[1,0],[0,1],[1,1],[1,-1]];for(const[dx,dy]of directions){let count=1,empty=0;for(let i=1;i<5;i++){const nx=x+dx*i,ny=y+dy*i;if(nx>=0&&nx<BOARD_SIZE&&ny>=0&&ny<BOARD_SIZE){if(board[nx][ny]===2)count++;else if(board[nx][ny]===0)empty++;else break;}else break;}for(let i=1;i<5;i++){const nx=x-dx*i,ny=y-dy*i;if(nx>=0&&nx<BOARD_SIZE&&ny>=0&&ny<BOARD_SIZE){if(board[nx][ny]===2)count++;else if(board[nx][ny]===0)empty++;else break;}else break;}if(count===5)score+=100000;else if(count===4&&empty>=1)score+=10000;else if(count===3&&empty>=2)score+=1000;else if(count===2&&empty>=3)score+=100;}return score;}
+        
+        // 修复后的 evaluatePosition：完整管理棋盘状态的临时修改
+        function evaluatePosition(x,y,player){
+            let score=0;
+            const opponent=player===1?2:1;
+            
+            // 临时放置当前玩家的棋子，检查是否能赢
+            board[x][y]=player;
+            if(checkWin(x,y,player)){
+                board[x][y]=0;
+                return 100000; // 能赢，最高分
+            }
+            
+            // 临时放置对手的棋子，检查对手是否能赢（需要阻挡）
+            board[x][y]=opponent;
+            if(checkWin(x,y,opponent)){
+                board[x][y]=0;
+                return 90000; // 阻挡对手赢，高分
+            }
+            
+            // 恢复当前玩家的棋子进行详细评估
+            board[x][y]=player;
+            
+            // 评估各方向的连子情况
+            const directions=[[1,0],[0,1],[1,1],[1,-1]];
+            for(const[dx,dy]of directions){
+                let count=1;
+                let openEnds=0;
+                
+                // 正向检查
+                for(let i=1;i<5;i++){
+                    const nx=x+dx*i,ny=y+dy*i;
+                    if(nx>=0&&nx<BOARD_SIZE&&ny>=0&&ny<BOARD_SIZE){
+                        if(board[nx][ny]===player)count++;
+                        else if(board[nx][ny]===0){openEnds++;break;}
+                        else break;
+                    }else break;
+                }
+                
+                // 反向检查
+                for(let i=1;i<5;i++){
+                    const nx=x-dx*i,ny=y-dy*i;
+                    if(nx>=0&&nx<BOARD_SIZE&&ny>=0&&ny<BOARD_SIZE){
+                        if(board[nx][ny]===player)count++;
+                        else if(board[nx][ny]===0){openEnds++;break;}
+                        else break;
+                    }else break;
+                }
+                
+                // 根据连子数和开放端数评分
+                if(count>=5)score+=100000;
+                else if(count===4&&openEnds>=2)score+=50000;  // 活四
+                else if(count===4&&openEnds===1)score+=10000; // 冲四
+                else if(count===3&&openEnds>=2)score+=5000;   // 活三
+                else if(count===3&&openEnds===1)score+=500;   // 眠三
+                else if(count===2&&openEnds>=2)score+=100;    // 活二
+            }
+            
+            // 清理：移除临时棋子
+            board[x][y]=0;
+            return score;
+        }
+        
         function endGame(winner){gameOver=true;statusEl.textContent=winner===1?'🎉 你赢了！':'💀 AI 赢了！再接再厉！';}
+        
         canvas.addEventListener('mousemove',(e)=>{if(gameOver||currentPlayer!==1)return;const rect=canvas.getBoundingClientRect(),x=Math.round((e.clientX-rect.left-PADDING)/CELL_SIZE),y=Math.round((e.clientY-rect.top-PADDING)/CELL_SIZE);if(x>=0&&x<BOARD_SIZE&&y>=0&&y<BOARD_SIZE&&board[x][y]===0){if(!hoverPos||hoverPos.x!==x||hoverPos.y!==y){hoverPos={x,y};requestAnimationFrame(draw);}}else if(hoverPos){hoverPos=null;requestAnimationFrame(draw);}});
         canvas.addEventListener('mouseleave',()=>{if(hoverPos){hoverPos=null;requestAnimationFrame(draw);}});
         canvas.addEventListener('click',(e)=>{if(gameOver||currentPlayer!==1)return;const rect=canvas.getBoundingClientRect(),x=Math.round((e.clientX-rect.left-PADDING)/CELL_SIZE),y=Math.round((e.clientY-rect.top-PADDING)/CELL_SIZE);if(x>=0&&x<BOARD_SIZE&&y>=0&&y<BOARD_SIZE&&board[x][y]===0){board[x][y]=1;moveHistory.push({x,y});if(checkWin(x,y,1)){endGame(1);draw();return;}currentPlayer=2;hoverPos=null;updateStatus();draw();aiMove();}});
