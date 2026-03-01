@@ -24,11 +24,21 @@ body {
   min-height: 100vh;
 }
 
-/* 棋盘光标：使用自定义 SVG 光标（黑棋子） */
+/* 默认指针光标 */
 #gameCanvas {
-  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="%23333" stroke="%23000" stroke-width="1"/><circle cx="9" cy="9" r="3" fill="%23666" opacity="0.5"/></svg>') 12 12, crosshair;
+  cursor: pointer;
   max-width: 100%;
   height: auto;
+}
+
+/* 黑棋光标 */
+#gameCanvas.cursor-black {
+  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12" fill="%23333" stroke="%23000" stroke-width="1.5"/><circle cx="10" cy="10" r="3" fill="%23666" opacity="0.6"/></svg>') 14 14, pointer;
+}
+
+/* 白棋光标 */
+#gameCanvas.cursor-white {
+  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12" fill="%23fff" stroke="%23999" stroke-width="1.5"/><circle cx="10" cy="10" r="3" fill="%23eee" opacity="0.8"/></svg>') 14 14, pointer;
 }
 
 button {

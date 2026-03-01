@@ -8,10 +8,16 @@ export class Game {
   private gameOver: boolean;
   private moveHistory: Position[];
   private hoverPos: Position | null;
+  private gameStarted: boolean;
+  private playerColor: Player;
 
   private board: Board;
+  private canvas: HTMLCanvasElement;
   private statusEl: HTMLElement;
   private undoBtn: HTMLButtonElement;
+  private resetBtn: HTMLButtonElement;
+  private blackBtn: HTMLButtonElement;
+  private whiteBtn: HTMLButtonElement;
 
   private ai: AI;
 
@@ -21,10 +27,16 @@ export class Game {
     this.gameOver = false;
     this.moveHistory = [];
     this.hoverPos = null;
+    this.gameStarted = false;
+    this.playerColor = Player.Black;
 
     this.board = new Board('gameCanvas');
+    this.canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
     this.statusEl = document.getElementById('status')!;
     this.undoBtn = document.getElementById('undoBtn') as HTMLButtonElement;
+    this.resetBtn = document.getElementById('resetBtn') as HTMLButtonElement;
+    this.blackBtn = document.getElementById('blackBtn') as HTMLButtonElement;
+    this.whiteBtn = document.getElementById('whiteBtn') as HTMLButtonElement;
 
     this.ai = new AI(this.grid);
 
@@ -38,22 +50,29 @@ export class Game {
       .map(() => Array(BOARD_SIZE).fill(Player.None));
   }
 
-  reset(): void {
-    this.grid = this.createEmptyGrid();
-    this.currentPlayer = Player.Black;
-    this.gameOver = false;
-    this.moveHistory = [];
-    this.hoverPos = null;
-    this.ai = new AI(this.grid);
-    this.updateStatus();
-    this.render();
+  private getAiColor(): Player {
+    return this.playerColor === Player.Black ? Player.White : Player.Black;
   }
 
   private bindEvents(): void {
-    const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+    this.blackBtn.addEventListener('click', () => {
+      this.startGame(Player.Black);
+    });
 
-    canvas.addEventListener('mousemove', (e) => {
-      if (this.gameOver || this.currentPlayer !== Player.Black) return;
+    this.whiteBtn.addEventListener('click', () => {
+      this.startGame(Player.White);
+    });
+
+    this.resetBtn.addEventListener('click', () => {
+      this.reset();
+    });
+
+    this.undoBtn.addEventListener('click', () => {
+      this.undo();
+    });
+
+    this.canvas.addEventListener('mousemove', (e) => {
+      if (!this.gameStarted || this.gameOver || this.currentPlayer !== this.playerColor) return;
 
       const pos = this.board.getPositionFromEvent(e);
       if (pos && this.grid[pos.x][pos.y] === Player.None) {
@@ -67,29 +86,73 @@ export class Game {
       }
     });
 
-    canvas.addEventListener('mouseleave', () => {
+    this.canvas.addEventListener('mouseleave', () => {
       if (this.hoverPos) {
         this.hoverPos = null;
         this.render();
       }
     });
 
-    canvas.addEventListener('click', (e) => {
-      if (this.gameOver || this.currentPlayer !== Player.Black) return;
+    this.canvas.addEventListener('click', (e) => {
+      if (!this.gameStarted || this.gameOver || this.currentPlayer !== this.playerColor) return;
 
       const pos = this.board.getPositionFromEvent(e);
       if (pos && this.grid[pos.x][pos.y] === Player.None) {
-        this.makeMove(pos.x, pos.y, Player.Black);
+        this.makeMove(pos.x, pos.y, this.playerColor);
       }
     });
+  }
 
-    document.getElementById('resetBtn')?.addEventListener('click', () => {
-      this.reset();
-    });
+  private startGame(playerColor: Player): void {
+    this.playerColor = playerColor;
+    this.gameStarted = true;
+    this.grid = this.createEmptyGrid();
+    this.moveHistory = [];
+    this.gameOver = false;
+    
+    this.ai = new AI(this.grid);
+    this.ai.setAiColor(this.getAiColor());
 
-    this.undoBtn.addEventListener('click', () => {
-      this.undo();
-    });
+    this.blackBtn.classList.add('hidden');
+    this.whiteBtn.classList.add('hidden');
+    this.resetBtn.classList.remove('hidden');
+    this.undoBtn.classList.remove('hidden');
+
+    this.updateCursor();
+    this.updateStatus();
+    this.render();
+
+    if (playerColor === Player.White) {
+      this.currentPlayer = Player.Black;
+      setTimeout(() => this.aiMove(), 300);
+    } else {
+      this.currentPlayer = Player.Black;
+    }
+  }
+
+  private updateCursor(): void {
+    this.canvas.classList.remove('cursor-black', 'cursor-white');
+    this.canvas.classList.add(this.playerColor === Player.Black ? 'cursor-black' : 'cursor-white');
+  }
+
+  reset(): void {
+    this.grid = this.createEmptyGrid();
+    this.currentPlayer = Player.Black;
+    this.gameOver = false;
+    this.moveHistory = [];
+    this.hoverPos = null;
+    this.gameStarted = false;
+
+    this.blackBtn.classList.remove('hidden');
+    this.whiteBtn.classList.remove('hidden');
+    this.resetBtn.classList.add('hidden');
+    this.undoBtn.classList.add('hidden');
+
+    this.canvas.classList.remove('cursor-black', 'cursor-white');
+
+    this.statusEl.textContent = '选择先后手';
+    this.statusEl.className = 'text-center text-slate-900 text-xl font-bold min-h-12 bg-amber-200 px-8 py-3 rounded-xl shadow-lg border-2 border-amber-400';
+    this.render();
   }
 
   private makeMove(x: number, y: number, player: Player): void {
@@ -98,42 +161,41 @@ export class Game {
     this.hoverPos = null;
 
     if (this.checkWin(x, y, player)) {
-      this.endGame(player === Player.Black ? GameStatus.PlayerWin : GameStatus.AIWin);
+      this.endGame(player === this.playerColor ? GameStatus.PlayerWin : GameStatus.AIWin);
       this.render();
       return;
     }
 
-    if (player === Player.Black) {
-      this.currentPlayer = Player.White;
-      this.updateStatus();
-      this.render();
+    this.currentPlayer = player === Player.Black ? Player.White : Player.Black;
+    this.updateStatus();
+    this.render();
+
+    if (this.currentPlayer !== this.playerColor) {
       setTimeout(() => this.aiMove(), 100);
-    } else {
-      this.currentPlayer = Player.Black;
-      this.updateStatus();
-      this.render();
     }
   }
 
   private aiMove(): void {
+    if (this.gameOver) return;
+    
     const move = this.ai.getBestMove();
     if (move) {
-      this.makeMove(move.x, move.y, Player.White);
+      this.makeMove(move.x, move.y, this.getAiColor());
     }
   }
 
   private undo(): void {
-    if (this.moveHistory.length < 2 || this.gameOver) return;
+    if (!this.gameStarted || this.gameOver) return;
+    if (this.moveHistory.length < 2) return;
 
-    const aiMove = this.moveHistory.pop()!;
-    this.grid[aiMove.x][aiMove.y] = Player.None;
+    for (let i = 0; i < 2; i++) {
+      const move = this.moveHistory.pop()!;
+      this.grid[move.x][move.y] = Player.None;
+    }
 
-    const playerMove = this.moveHistory.pop()!;
-    this.grid[playerMove.x][playerMove.y] = Player.None;
-
-    this.currentPlayer = Player.Black;
-    this.gameOver = false;
+    this.currentPlayer = this.playerColor;
     this.ai = new AI(this.grid);
+    this.ai.setAiColor(this.getAiColor());
     this.updateStatus();
     this.render();
   }
@@ -150,8 +212,7 @@ export class Game {
       let count = 1;
 
       for (let i = 1; i < 5; i++) {
-        const nx = x + dx * i;
-        const ny = y + dy * i;
+        const nx = x + dx * i, ny = y + dy * i;
         if (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE) {
           if (this.grid[nx][ny] === player) count++;
           else break;
@@ -159,8 +220,7 @@ export class Game {
       }
 
       for (let i = 1; i < 5; i++) {
-        const nx = x - dx * i;
-        const ny = y - dy * i;
+        const nx = x - dx * i, ny = y - dy * i;
         if (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE) {
           if (this.grid[nx][ny] === player) count++;
           else break;
@@ -186,12 +246,14 @@ export class Game {
 
   private updateStatus(): void {
     this.statusEl.className = 'text-center text-slate-900 text-xl font-bold min-h-12 bg-amber-200 px-8 py-3 rounded-xl shadow-lg border-2 border-amber-400';
-    if (this.currentPlayer === Player.Black) {
-      this.statusEl.textContent = '⚫ 轮到你了';
+    
+    if (this.currentPlayer === this.playerColor) {
+      this.statusEl.textContent = this.playerColor === Player.Black ? '⚫ 轮到你了（黑棋）' : '⚪ 轮到你了（白棋）';
     } else {
-      this.statusEl.textContent = '⚪ AI 思考中...';
+      this.statusEl.textContent = this.playerColor === Player.Black ? '⚪ AI 思考中（白棋）...' : '⚫ AI 思考中（黑棋）...';
     }
-    this.undoBtn.disabled = this.moveHistory.length === 0;
+    
+    this.undoBtn.disabled = this.moveHistory.length < 2;
   }
 
   private render(): void {
@@ -201,8 +263,8 @@ export class Game {
 
     this.board.draw(this.grid, lastMove);
 
-    if (this.hoverPos && !this.gameOver && this.currentPlayer === Player.Black) {
-      this.board.drawHover(this.hoverPos.x, this.hoverPos.y);
+    if (this.hoverPos && this.gameStarted && !this.gameOver && this.currentPlayer === this.playerColor) {
+      this.board.drawHover(this.hoverPos.x, this.hoverPos.y, this.playerColor);
     }
   }
 }
