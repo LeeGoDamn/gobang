@@ -24,31 +24,28 @@ body {
   min-height: 100vh;
 }
 
+/* 棋盘光标：使用自定义 SVG 光标（黑棋子） */
 #gameCanvas {
-  cursor: none;
+  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="%23333" stroke="%23000" stroke-width="1"/><circle cx="9" cy="9" r="3" fill="%23666" opacity="0.5"/></svg>') 12 12, crosshair;
   max-width: 100%;
   height: auto;
 }
 
-/* 按钮样式增强 */
 button {
   user-select: none;
   -webkit-user-select: none;
 }
 
-/* 胜利/失败状态文字 */
 #status {
   transition: all 0.3s ease;
 }
 
-/* 棋盘阴影 */
 #gameCanvas {
   box-shadow: 
     0 10px 40px rgba(0, 0, 0, 0.4),
     inset 0 0 20px rgba(139, 69, 19, 0.1);
 }
 
-/* 响应式 */
 @media (max-width: 640px) {
   #gameCanvas {
     width: 320px !important;
